@@ -8,31 +8,53 @@ namespace Dapr.Actors.Runtime
     using System;
     using System.Collections.Generic;
     using System.IO;
+    using System.Text;
+    using System.Text.Json;
     using System.Threading;
     using System.Threading.Tasks;
-    using Newtonsoft.Json;
 
     /// <summary>
     /// State Provider to interact with Dapr runtime.
     /// </summary>
     internal class DaprStateProvider
     {
-        private readonly ActorStateProviderSerializer actorStateSerializer;
+        private readonly IActorStateSerializer actorStateSerializer;
+        private readonly JsonSerializerOptions jsonSerializerOptions;
 
-        public DaprStateProvider(ActorStateProviderSerializer actorStateSerializer)
+        private readonly IDaprInteractor daprInteractor;
+
+        public DaprStateProvider(IDaprInteractor daprInteractor, IActorStateSerializer actorStateSerializer = null)
         {
             this.actorStateSerializer = actorStateSerializer;
+            this.daprInteractor = daprInteractor;
+        }
+
+        public DaprStateProvider(IDaprInteractor daprInteractor, JsonSerializerOptions jsonSerializerOptions = null)
+        {
+            this.jsonSerializerOptions = jsonSerializerOptions;
+            this.daprInteractor = daprInteractor;
         }
 
         public async Task<ConditionalValue<T>> TryLoadStateAsync<T>(string actorType, string actorId, string stateName, CancellationToken cancellationToken = default)
         {
             var result = new ConditionalValue<T>(false, default);
-            var stringResult = await ActorRuntime.DaprInteractor.GetStateAsync(actorType, actorId, stateName, cancellationToken);
+            var stringResult = await this.daprInteractor.GetStateAsync(actorType, actorId, stateName, cancellationToken);
 
             if (stringResult.Length != 0)
             {
-                var byteResult = Convert.FromBase64String(stringResult.Trim('"'));
-                var typedResult = this.actorStateSerializer.Deserialize<T>(byteResult);
+                T typedResult;
+
+                // perform default json de-serialization if custom serializer was not provided.
+                if (this.actorStateSerializer != null)
+                {
+                    var byteResult = Convert.FromBase64String(stringResult.Trim('"'));
+                    typedResult = this.actorStateSerializer.Deserialize<T>(byteResult);
+                }
+                else
+                {
+                    typedResult = JsonSerializer.Deserialize<T>(stringResult, jsonSerializerOptions);
+                }
+
                 result = new ConditionalValue<T>(true, typedResult);
             }
 
@@ -41,7 +63,7 @@ namespace Dapr.Actors.Runtime
 
         public async Task<bool> ContainsStateAsync(string actorType, string actorId, string stateName, CancellationToken cancellationToken = default)
         {
-            var byteResult = await ActorRuntime.DaprInteractor.GetStateAsync(actorType, actorId, stateName, cancellationToken);
+            var byteResult = await this.daprInteractor.GetStateAsync(actorType, actorId, stateName, cancellationToken);
             return byteResult.Length != 0;
         }
 
@@ -50,7 +72,7 @@ namespace Dapr.Actors.Runtime
             await this.DoStateChangesTransactionallyAsync(actorType, actorId, stateChanges, cancellationToken);
         }
 
-        private Task DoStateChangesTransactionallyAsync(string actorType, string actorId, IReadOnlyCollection<ActorStateChange> stateChanges, CancellationToken cancellationToken = default)
+        private async Task DoStateChangesTransactionallyAsync(string actorType, string actorId, IReadOnlyCollection<ActorStateChange> stateChanges, CancellationToken cancellationToken = default)
         {
             // Transactional state update request body:
             /*
@@ -70,55 +92,52 @@ namespace Dapr.Actors.Runtime
                 }
             ]
             */
-
-            string content;
-            using (var sw = new StringWriter())
-            {
-                using (var writer = new JsonTextWriter(sw))
-                {
-                    writer.WriteStartArray();
-
-                    foreach (var stateChange in stateChanges)
-                    {
-                        writer.WriteStartObject();
-                        var operation = this.GetDaprStateOperation(stateChange.ChangeKind);
-                        writer.WriteProperty(operation, "operation", JsonWriterExtensions.WriteStringValue);
-                        writer.WriteProperty(stateChange, "request", this.SerializeStateChangeRequest);
-                        writer.WriteEndObject();
-                    }
-
-                    writer.WriteEndArray();
-                }
-
-                content = sw.ToString();
-            }
-
-            return ActorRuntime.DaprInteractor.SaveStateTransactionallyAsync(actorType, actorId, content, cancellationToken);
-        }
-
-        /// <summary>
-        /// Save state individually. Dapr runtime has added Tranaction save state. Use that instead. This method exists for debugging and testing of save state individually.
-        /// </summary>
-        private async Task DoStateChangesIndividuallyAsync(string actorType, string actorId, IReadOnlyCollection<ActorStateChange> stateChanges, CancellationToken cancellationToken = default)
-        {
+            using var stream = new MemoryStream();
+            using var writer = new Utf8JsonWriter(stream);
+            writer.WriteStartArray();
             foreach (var stateChange in stateChanges)
             {
-                var keyName = stateChange.StateName;
+                writer.WriteStartObject();
+                var operation = this.GetDaprStateOperation(stateChange.ChangeKind);
+                writer.WriteString("operation", operation);
 
+                // write the requestProperty
+                writer.WritePropertyName("request");
+                writer.WriteStartObject();  // start object for request property
                 switch (stateChange.ChangeKind)
                 {
                     case StateChangeKind.Remove:
-                        await ActorRuntime.DaprInteractor.RemoveStateAsync(actorType, actorId, keyName, cancellationToken);
+                        writer.WriteString("key", stateChange.StateName);
                         break;
                     case StateChangeKind.Add:
                     case StateChangeKind.Update:
-                        // Currently Dapr runtime only support json serialization.
-                        await ActorRuntime.DaprInteractor.SaveStateAsync(actorType, actorId, keyName, JsonConvert.SerializeObject(stateChange.Value), cancellationToken);
+                        writer.WriteString("key", stateChange.StateName);
+
+                        // perform default json serialization if custom serializer was not provided.
+                        if (this.actorStateSerializer != null)
+                        {
+                            var buffer = this.actorStateSerializer.Serialize(stateChange.Type, stateChange.Value);
+                            writer.WriteBase64String("value", buffer);
+                        }
+                        else
+                        {
+                            writer.WritePropertyName("value");
+                            JsonSerializer.Serialize(writer, stateChange.Value, stateChange.Type, jsonSerializerOptions);
+                        }
                         break;
                     default:
                         break;
                 }
+
+                writer.WriteEndObject();  // end object for request property
+                writer.WriteEndObject();
             }
+
+            writer.WriteEndArray();
+
+            await writer.FlushAsync();
+            var content = Encoding.UTF8.GetString(stream.ToArray());
+            await this.daprInteractor.SaveStateTransactionallyAsync(actorType, actorId, content, cancellationToken);
         }
 
         private string GetDaprStateOperation(StateChangeKind changeKind)
@@ -139,28 +158,6 @@ namespace Dapr.Actors.Runtime
             }
 
             return operation;
-        }
-
-        private void SerializeStateChangeRequest(JsonWriter writer, ActorStateChange stateChange)
-        {
-            writer.WriteStartObject();
-
-            switch (stateChange.ChangeKind)
-            {
-                case StateChangeKind.Remove:
-                    writer.WriteProperty(stateChange.StateName, "key", JsonWriterExtensions.WriteStringValue);
-                    break;
-                case StateChangeKind.Add:
-                case StateChangeKind.Update:
-                    writer.WriteProperty(stateChange.StateName, "key", JsonWriterExtensions.WriteStringValue);
-                    var buffer = this.actorStateSerializer.Serialize(stateChange.Type, stateChange.Value);
-                    writer.WriteProperty(Convert.ToBase64String(buffer), "value", JsonWriterExtensions.WriteStringValue);
-                    break;
-                default:
-                    break;
-            }
-
-            writer.WriteEndObject();
         }
     }
 }

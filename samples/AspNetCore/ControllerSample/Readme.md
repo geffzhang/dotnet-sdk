@@ -1,33 +1,52 @@
 # ASP.NET Core Controller Sample
 
-This sample shows using Dapr with ASP.NET Core routing. This application is a simple and not-so-secure banking application. The application uses the Dapr state-store for its data storage.
+This sample shows using Dapr with ASP.NET Core controllers. This application is a simple and not-so-secure banking application. The application uses the Dapr state-store for its data storage.
 
 It exposes the following endpoints over HTTP:
  - GET `/{account}`: Get the balance for the account specified by `id`
  - POST `/deposit`: Accepts a JSON payload to deposit money to an account
  - POST `/withdraw`: Accepts a JSON payload to withdraw money from an account
 
-The application also registers for pub-sub with the `deposit` and `withdraw` topics.
+The application also registers for pub/sub with the `deposit` and `withdraw` topics.
 
  ## Running the Sample
 
- To run the sample locally run this comment in this directory:
+ To run the sample locally run this command in this project root directory:
  ```sh
- dapr run --app-id routing --app-port 5000 dotnet run
+ dapr run --app-id controller --app-port 5000 -- dotnet run
  ```
 
  The application will listen on port 5000 for HTTP.
+
+ *Note: For Running the sample in ISS express, change the launchsettings.json to use 127.0.0.1 instead of localhost.*
 
  ### Examples
 
 **Deposit Money**
 
+On Linux, MacOS:
  ```sh
-curl -X POST http://localhost:5000/deposit \
+curl -X POST http://127.0.0.1:5000/deposit \
         -H 'Content-Type: application/json' \
         -d '{ "id": "17", "amount": 12 }'
  ```
 
+ On Windows:
+ ```sh
+curl -X POST http://127.0.0.1:5000/deposit -H "Content-Type: application/json" -d "{ \"id\": \"17\", \"amount\": 12 }"
+ ```
+
+Or, we can also do this using the Visual Studio Code [Rest Client Plugin](https://marketplace.visualstudio.com/items?itemName=humao.rest-client)
+
+[sample.http](sample.http)
+```http
+POST http://127.0.0.1:5000/deposit
+Content-Type: application/json
+
+{ "id": "17", "amount": 12 }
+```
+
+Output:
 ```txt
  {"id":"17","balance":12}
 ```
@@ -35,13 +54,28 @@ curl -X POST http://localhost:5000/deposit \
  ---
 
 **Withdraw Money**
-
+On Linux, MacOS:
  ```sh
-curl -X POST http://localhost:5000/withdraw \
+curl -X POST http://127.0.0.1:5000/withdraw \
         -H 'Content-Type: application/json' \
         -d '{ "id": "17", "amount": 10 }'
  ```
+On Windows:
+ ```sh
+ curl -X POST http://127.0.0.1:5000/withdraw -H "Content-Type: application/json" -d "{ \"id\": \"17\", \"amount\": 10 }"
+ ```
 
+or using the Visual Studio Code [Rest Client Plugin](https://marketplace.visualstudio.com/items?itemName=humao.rest-client)
+
+[sample.http](sample.http)
+```http
+POST http://127.0.0.1:5000/withdraw
+Content-Type: application/json
+
+{ "id": "17", "amount": 5 }
+```
+
+Output:
 ```txt
 {"id":"17","balance":2}
 ```
@@ -51,9 +85,18 @@ curl -X POST http://localhost:5000/withdraw \
 **Get Balance**
 
 ```sh
-curl http://localhost:5000/17
+curl http://127.0.0.1:5000/17
 ```
 
+or using the Visual Studio Code [Rest Client Plugin](https://marketplace.visualstudio.com/items?itemName=humao.rest-client)
+
+[sample.http](sample.http)
+```http
+GET http://127.0.0.1:5000/17
+```
+
+Output:
+```txt
 ```txt
 {"id":"17","balance":2}
 ```
@@ -61,19 +104,29 @@ curl http://localhost:5000/17
  ---
 
  **Withdraw Money (pubsub)**
-
+ 
+ Publish events using Dapr cli:
+ 
+ On Linux, MacOS:
 ```sh
-dapr publish -t withdraw -p '{"id": "17", "amount": 15 }'
+dapr publish --pubsub pubsub --publish-app-id controller -t withdraw -d '{"id": "17", "amount": 15 }'
 ```
-
+On Windows:
+ ```sh
+ dapr publish --pubsub pubsub --publish-app-id controller -t withdraw -d "{\"id\": \"17\", \"amount\": 15 }"
+ ```
  ---
 
 **Deposit Money (pubsub)**
-
+Publish events using Dapr cli:
+On Linux, MacOS:
 ```sh
-dapr publish -t deposit -p '{"id": "17", "amount": 15 }'
+dapr publish --pubsub pubsub --publish-app-id controller -t deposit -d '{"id": "17", "amount": 15 }'
 ```
-
+On Windows:
+ ```sh
+ dapr publish --pubsub pubsub --publish-app-id controller -t deposit -d "{\"id\": \"17\", \"amount\": 15 }"
+```
  ---
 
  ## Code Samples
@@ -83,13 +136,19 @@ dapr publish -t deposit -p '{"id": "17", "amount": 15 }'
 ```C#
  public void ConfigureServices(IServiceCollection services)
 {
-    services.AddControllers().AddDapr();
+    services.AddControllers().AddDapr(builder => 
+        builder.UseJsonSerializationOptions(
+            new JsonSerializerOptions()
+            {
+                PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
+                PropertyNameCaseInsensitive = true,
+            }));
 
     ...
 }
  ```
 
- `AddDapr()` registers the Dapr integration with controllers. This also registers the `StateClient` service with the dependency injection container. This service can be used to interact with the Dapr state-store.
+ `AddDapr()` registers the Dapr integration with controllers. This also registers the `DaprClient` service with the dependency injection container (using the sepcified `DaprClientBuilder` for settings options). This service can be used to interact with the dapr runtime (e.g. invoke services, publish messages, interact with a state-store, ...).
 
 ---
 
@@ -109,12 +168,12 @@ app.UseEndpoints(endpoints =>
 });
 ```
 
-`MapSubscribeHandler()` registers an endpoint that will be called by the Dapr runtime to register for pub-sub topics. This is is not needed unless using pub-sub.
+`MapSubscribeHandler()` registers an endpoint that will be called by the Dapr runtime to register for pub/sub topics. This is is not needed unless using pub/sub.
 
 ---
 
 ```C#
-[Topic("deposit")]
+[Topic("pubsub", "deposit")]
 [HttpPost("deposit")]
 public async Task<ActionResult<Account>> Deposit(...)
 {
@@ -122,7 +181,7 @@ public async Task<ActionResult<Account>> Deposit(...)
 }
 ```
 
-`[Topic(...)]` associates a pub-sub topic with this endpoint.
+`[Topic(...)]` associates a pub/sub named `pubsub` (this is the default configured by the Dapr CLI) pub/sub topic `deposit` with this endpoint.
 
 ---
 
@@ -162,7 +221,7 @@ Using `[FromState]` allows binding a data type directly without using `StateEntr
 ---
 
 ```C#
-[Topic("deposit")]
+[Topic("pubsub", "deposit")]
 [HttpPost("deposit")]
 public async Task<ActionResult<Account>> Deposit(Transaction transaction, [FromServices] StateClient stateClient)
 {

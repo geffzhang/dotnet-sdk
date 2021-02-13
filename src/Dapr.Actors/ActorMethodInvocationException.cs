@@ -11,13 +11,13 @@ namespace Dapr.Actors
     /// Exception for Remote Actor Method Invocation.
     /// </summary>
     [Serializable]
-    public class ActorMethodInvocationException : DaprException
+    public class ActorMethodInvocationException : DaprApiException
     {
         /// <summary>
         /// Initializes a new instance of the <see cref="ActorMethodInvocationException"/> class.
         /// </summary>
         public ActorMethodInvocationException()
-            : base(DaprErrorCodes.ERR_INVOKE_ACTOR, false)
+            : base(Constants.ErrorActorInvokeMethod, false)
         {
         }
 
@@ -27,7 +27,7 @@ namespace Dapr.Actors
         /// <param name="message">The error message that explains the reason for the exception.</param>
         /// <param name="isTransient">True, if the exception is to be treated as an transient exception.</param>
         public ActorMethodInvocationException(string message, bool isTransient)
-            : base(message, DaprErrorCodes.ERR_INVOKE_ACTOR, isTransient)
+            : base(message, Constants.ErrorActorInvokeMethod, isTransient)
         {
         }
 
@@ -39,7 +39,7 @@ namespace Dapr.Actors
         /// <param name="innerException">The exception that is the cause of the current exception.</param>
         /// <param name="isTransient">True, if the exception is to be treated as an transient exception.</param>
         public ActorMethodInvocationException(string message, Exception innerException, bool isTransient)
-            : base(message, innerException, DaprErrorCodes.ERR_INVOKE_ACTOR, isTransient)
+            : base(message, innerException, Constants.ErrorActorInvokeMethod, isTransient)
         {
         }
     }

@@ -16,24 +16,60 @@ on:
 jobs:
   build:
     name: Build Projects
-    runs-on: windows-latest
-    strategy:
-      matrix:
-        configuration: [release, debug]
+    runs-on: ubuntu-latest
+    env:
+      NUPKG_OUTDIR: bin/Release/nugets
     steps:
       - uses: actions/checkout@v1
+      - name: Parse release version
+        run: python ./.github/scripts/get_release_version.py
       - name: Setup .NET Core
         uses: actions/setup-dotnet@v1
         with:
-          dotnet-version: 3.0.100
-      - name: Build solution - ${{ matrix.configuration }}
-        run: dotnet build all.sln --configuration ${{ matrix.configuration }}
-      - name: Test solution - ${{ matrix.configuration }}
-        run: dotnet test test/test.sln --configuration ${{ matrix.configuration }}
-      - name: Generate Nuget Packages - ${{ matrix.configuration }}
-        run: dotnet pack src/prod.sln --configuration ${{ matrix.configuration }} --include-symbols --no-build
+          dotnet-version: 3.1.x
+      - name: Setup .NET Core
+        uses: actions/setup-dotnet@v1
+        with:
+          dotnet-version: 5.0.x
+      - name: Test solution - release
+        run: |
+          # disable deterministic builds, just for test run. Deterministic builds break coverage for some reason
+          dotnet test --configuration release /p:CollectCoverage=true /p:CoverletOutputFormat=opencover /p:GITHUB_ACTIONS=false
+          dotnet clean # remove the artifacts so they can be rebuild with deterministic builds enabled
+      - name: Build solution - release
+        run: dotnet build --configuration release
+      - name: Generate Nuget Packages - release
+        run: dotnet pack --configuration release
       - name: upload artifacts
         uses: actions/upload-artifact@master
         with:
-          name: ${{ matrix.configuration }}_drop
-          path: bin/${{ matrix.configuration }}/nugets
+          name: release_drop
+          path: ${{ env.NUPKG_OUTDIR }}
+      - name: Upload test coverage
+        uses: codecov/codecov-action@v1
+      - name: Publish binaries to github for tags
+        if: startswith(github.ref, 'refs/tags/v')
+        run: |
+          sudo npm install --silent --no-progress -g github-release-cli@1.3.1
+          
+          # Parse repository to get owner and repo names
+          OWNER_NAME="${GITHUB_REPOSITORY%%/*}"
+          REPO_NAME="${GITHUB_REPOSITORY#*/}"
+          
+          # Get the list of files
+          RELEASE_ARTIFACT=(${{ env.NUPKG_OUTDIR }}/*)
+          
+          export GITHUB_TOKEN=${{ secrets.DAPR_BOT_TOKEN }}
+          echo "Uploading Nuget packages to GitHub Release"
+          github-release upload \
+            --owner $OWNER_NAME \
+            --repo $REPO_NAME \
+            --body "Release dapr dotnet SDK v${REL_VERSION}" \
+            --tag "v${REL_VERSION}" \
+            --name "Dapr dotnet SDK v${REL_VERSION}" \
+            --prerelease true \
+            ${RELEASE_ARTIFACT[*]}
+      - name: Publish nuget packages to nuget.org
+        if: startswith(github.ref, 'refs/tags/v') && !(endsWith(github.ref, '-rc') || endsWith(github.ref, '-dev') || endsWith(github.ref, '-prerelease'))
+        run: |
+          dotnet nuget push "${{ env.NUPKG_OUTDIR }}/Dapr*.nupkg" --skip-duplicate --api-key ${{ secrets.NUGETORG_DAPR_API_KEY }} --source https://api.nuget.org/v3/index.json

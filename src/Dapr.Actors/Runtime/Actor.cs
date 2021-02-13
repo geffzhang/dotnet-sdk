@@ -6,8 +6,11 @@
 namespace Dapr.Actors.Runtime
 {
     using System;
-    using System.Collections.Generic;
+    using System.Reflection;
+    using System.Text.Json;
     using System.Threading.Tasks;
+    using Dapr.Actors.Client;
+    using Microsoft.Extensions.Logging;
 
     /// <summary>
     /// Represents the base class for actors.
@@ -19,56 +22,54 @@ namespace Dapr.Actors.Runtime
     /// </remarks>
     public abstract class Actor
     {
-        private const string TraceType = "Actor";
-        private readonly string traceId;
-        private readonly string actorImplementaionTypeName;
+        private readonly string actorTypeName;
 
         /// <summary>
-        /// Contains timers to be invoked.
+        /// The Logger
         /// </summary>
-        private readonly Dictionary<string, IActorTimer> timers = new Dictionary<string, IActorTimer>();
+        protected ILogger Logger { get; }
 
         /// <summary>
         /// Initializes a new instance of the <see cref="Actor"/> class.
         /// </summary>
-        /// <param name="actorService">The <see cref="ActorService"/> that will host this actor instance.</param>
-        /// <param name="actorId">Id for the actor.</param>
-        protected Actor(ActorService actorService, ActorId actorId)
+        /// <param name="host">The <see cref="ActorHost"/> that will host this actor instance.</param>
+        protected Actor(ActorHost host)
         {
-            this.Id = actorId;
-            this.traceId = this.Id.ToString();
-            this.IsDirty = false;
-            this.ActorService = actorService;
+            this.Host = host;
             this.StateManager = new ActorStateManager(this);
-            this.actorImplementaionTypeName = this.ActorService.ActorTypeInfo.ImplementationType.Name;
+            this.actorTypeName = this.Host.ActorTypeInfo.ActorTypeName;
+            this.Logger = host.LoggerFactory.CreateLogger(this.GetType());
         }
 
         /// <summary>
         /// Gets the identity of this actor.
         /// </summary>
         /// <value>The <see cref="ActorId"/> for the actor.</value>
-        public ActorId Id { get; }
+        public ActorId Id => Host.Id;
 
         /// <summary>
-        /// Gets the host ActorService of this actor within the Actor runtime.
+        /// Gets the host of this actor within the actor runtime.
         /// </summary>
-        /// <value>The <see cref="ActorService"/> for the actor.</value>
-        public ActorService ActorService { get; }
+        /// <value>The <see cref="ActorHost"/> for the actor.</value>
+        public ActorHost Host { get; }
 
-        internal ActorTrace TraceSource => ActorTrace.Instance;
-
-        internal bool IsDirty { get; private set; }
+        /// <summary>
+        /// Gets the <see cref="IActorProxyFactory" /> used to create proxy client instances for communicating
+        /// with other actors.
+        /// </summary>
+        public IActorProxyFactory ProxyFactory => this.Host.ProxyFactory;
 
         /// <summary>
         /// Gets the StateManager for the actor.
         /// </summary>
-        protected IActorStateManager StateManager { get; }
+        protected IActorStateManager StateManager { get; set; }
 
         internal async Task OnActivateInternalAsync()
         {
             await this.ResetStateAsync();
             await this.OnActivateAsync();
-            this.TraceSource.WriteInfoWithId(TraceType, this.traceId, "Activated");
+
+            this.Logger.LogDebug("Activated");
 
             // Save any state modifications done in user overridden Activate method.
             await this.SaveStateAsync();
@@ -76,10 +77,10 @@ namespace Dapr.Actors.Runtime
 
         internal async Task OnDeactivateInternalAsync()
         {
-            this.TraceSource.WriteInfoWithId(TraceType, this.traceId, "Deactivating ...");
+            this.Logger.LogDebug("Deactivating ...");
             await this.ResetStateAsync();
             await this.OnDeactivateAsync();
-            this.TraceSource.WriteInfoWithId(TraceType, this.traceId, "Deactivated");
+            this.Logger.LogDebug("Deactivated");
         }
 
         internal Task OnPreActorMethodAsyncInternal(ActorMethodContext actorMethodContext)
@@ -97,12 +98,6 @@ namespace Dapr.Actors.Runtime
         {
             // Exception has been thrown by user code, reset the state in state manager.
             return this.ResetStateAsync();
-        }
-
-        internal Task FireTimerAsync(string timerName)
-        {
-            var timer = this.timers[timerName];
-            return timer.AsyncCallback.Invoke(timer.State);
         }
 
         internal Task ResetStateAsync()
@@ -212,9 +207,12 @@ namespace Dapr.Actors.Runtime
             TimeSpan dueTime,
             TimeSpan period)
         {
+            EnsureInteractorInitialized();
+
             var reminderInfo = new ReminderInfo(state, dueTime, period);
             var reminder = new ActorReminder(this.Id, reminderName, reminderInfo);
-            await ActorRuntime.DaprInteractor.RegisterReminderAsync(this.actorImplementaionTypeName, this.Id.ToString(), reminderName, reminderInfo.SerializeToJson());
+            var serializedReminderInfo = await reminderInfo.SerializeAsync();
+            await this.Host.DaprInteractor.RegisterReminderAsync(this.actorTypeName, this.Id.ToString(), reminderName, serializedReminderInfo);
             return reminder;
         }
 
@@ -227,57 +225,33 @@ namespace Dapr.Actors.Runtime
         /// </returns>
         protected Task UnregisterReminderAsync(IActorReminder reminder)
         {
-            return ActorRuntime.DaprInteractor.UnregisterReminderAsync(this.actorImplementaionTypeName, this.Id.ToString(), reminder.Name);
+            EnsureInteractorInitialized();
+            return this.Host.DaprInteractor.UnregisterReminderAsync(this.actorTypeName, this.Id.ToString(), reminder.Name);
         }
 
         /// <summary>
         /// Unregisters a reminder previously registered using <see cref="Dapr.Actors.Runtime.Actor.RegisterReminderAsync" />.
         /// </summary>
-        /// <param name="reminderName">The actor reminder anme to unregister.</param>
+        /// <param name="reminderName">The actor reminder name to unregister.</param>
         /// <returns>
         /// Returns a task that represents the asynchronous unregistration operation.
         /// </returns>
         protected Task UnregisterReminderAsync(string reminderName)
         {
-            return ActorRuntime.DaprInteractor.UnregisterReminderAsync(this.actorImplementaionTypeName, this.Id.ToString(), reminderName);
+            EnsureInteractorInitialized();
+            return this.Host.DaprInteractor.UnregisterReminderAsync(this.actorTypeName, this.Id.ToString(), reminderName);
         }
 
         /// <summary>
         /// Registers a Timer for the actor. A timer name is autogenerated by the runtime to keep track of it.
         /// </summary>
-        /// <param name="asyncCallback">
-        /// A delegate that specifies a method to be called when the timer fires.
-        /// It has one parameter: the state object passed to RegisterTimer.
-        /// It returns a <see cref="System.Threading.Tasks.Task"/> representing the asynchronous operation.
-        /// </param>
-        /// <param name="state">An object containing information to be used by the callback method, or null.</param>
-        /// <param name="dueTime">The amount of time to delay before the async callback is first invoked.
-        /// Specify negative one (-1) milliseconds to prevent the timer from starting.
-        /// Specify zero (0) to start the timer immediately.
-        /// </param>
-        /// <param name="period">
-        /// The time interval between invocations of the async callback.
-        /// Specify negative one (-1) milliseconds to disable periodic signaling.</param>
-        /// <returns>Returns IActorTimer object.</returns>
-        protected Task<IActorTimer> RegisterTimerAsync(
-            Func<object, Task> asyncCallback,
-            object state,
-            TimeSpan dueTime,
-            TimeSpan period)
-        {
-            return this.RegisterTimerAsync(null, asyncCallback, state, dueTime, period);
-        }
-
-        /// <summary>
-        /// Registers a Timer for the actor. If a timer name is not provided, a timer is autogenerated.
-        /// </summary>
         /// <param name="timerName">Timer Name. If a timer name is not provided, a timer is autogenerated.</param>
-        /// <param name="asyncCallback">
-        /// A delegate that specifies a method to be called when the timer fires.
+        /// <param name="callback">
+        /// The name of the method to be called when the timer fires.
         /// It has one parameter: the state object passed to RegisterTimer.
         /// It returns a <see cref="System.Threading.Tasks.Task"/> representing the asynchronous operation.
         /// </param>
-        /// <param name="state">An object containing information to be used by the callback method, or null.</param>
+        /// <param name="callbackParams">An object containing information to be used by the callback method, or null.</param>
         /// <param name="dueTime">The amount of time to delay before the async callback is first invoked.
         /// Specify negative one (-1) milliseconds to prevent the timer from starting.
         /// Specify zero (0) to start the timer immediately.
@@ -286,23 +260,29 @@ namespace Dapr.Actors.Runtime
         /// The time interval between invocations of the async callback.
         /// Specify negative one (-1) milliseconds to disable periodic signaling.</param>
         /// <returns>Returns IActorTimer object.</returns>
-        protected async Task<IActorTimer> RegisterTimerAsync(
+        public async Task<ActorTimer> RegisterTimerAsync(
             string timerName,
-            Func<object, Task> asyncCallback,
-            object state,
+            string callback,
+            byte[] callbackParams,
             TimeSpan dueTime,
             TimeSpan period)
         {
+            EnsureInteractorInitialized();
+
+            // Validate that the timer callback specified meets all the required criteria for a valid callback method
+            this.ValidateTimerCallback(this.Host, callback);
+
             // create a timer name to register with Dapr runtime.
             if (string.IsNullOrEmpty(timerName))
             {
-                timerName = $"{this.Id.ToString()}_Timer_{this.timers.Count + 1}";
+                timerName = $"{this.Id}_Timer_{Guid.NewGuid()}";
             }
 
-            var actorTimer = new ActorTimer(this, timerName, asyncCallback, state, dueTime, period);
-            await ActorRuntime.DaprInteractor.RegisterTimerAsync(this.actorImplementaionTypeName, this.Id.ToString(), timerName, actorTimer.SerializeToJson());
+            var timerInfo = new TimerInfo(callback, callbackParams, dueTime, period);
+            var actorTimer = new ActorTimer(timerName, timerInfo);
+            var serializedTimer = JsonSerializer.Serialize<TimerInfo>(timerInfo);
+            await this.Host.DaprInteractor.RegisterTimerAsync(this.actorTypeName, this.Id.ToString(), timerName, serializedTimer);
 
-            this.timers[timerName] = actorTimer;
             return actorTimer;
         }
 
@@ -311,13 +291,10 @@ namespace Dapr.Actors.Runtime
         /// </summary>
         /// <param name="timer">An IActorTimer representing timer that needs to be unregistered.</param>
         /// <returns>Task representing the Unregister timer operation.</returns>
-        protected async Task UnregisterTimerAsync(IActorTimer timer)
+        protected async Task UnregisterTimerAsync(ActorTimer timer)
         {
-            await ActorRuntime.DaprInteractor.UnregisterTimerAsync(this.actorImplementaionTypeName, this.Id.ToString(), timer.Name);
-            if (this.timers.ContainsKey(timer.Name))
-            {
-                this.timers.Remove(timer.Name);
-            }
+            EnsureInteractorInitialized();
+            await this.Host.DaprInteractor.UnregisterTimerAsync(this.actorTypeName, this.Id.ToString(), timer.Name);
         }
 
         /// <summary>
@@ -327,10 +304,58 @@ namespace Dapr.Actors.Runtime
         /// <returns>Task representing the Unregister timer operation.</returns>
         protected async Task UnregisterTimerAsync(string timerName)
         {
-            await ActorRuntime.DaprInteractor.UnregisterTimerAsync(this.actorImplementaionTypeName, this.Id.ToString(), timerName);
-            if (this.timers.ContainsKey(timerName))
+            EnsureInteractorInitialized();
+            await this.Host.DaprInteractor.UnregisterTimerAsync(this.actorTypeName, this.Id.ToString(), timerName);
+        }
+
+        internal MethodInfo GetMethodInfoUsingReflection(Type actorType, string callback)
+        {
+            return actorType.GetMethod(callback, BindingFlags.Public | BindingFlags.Instance | BindingFlags.NonPublic | BindingFlags.Static);
+        }
+
+        internal void ValidateTimerCallback(ActorHost host, string callback)
+        {
+            var actorTypeName = host.ActorTypeInfo.ActorTypeName;
+            var actorType = host.ActorTypeInfo.ImplementationType;
+
+            MethodInfo methodInfo;
+            try
             {
-                this.timers.Remove(timerName);
+                methodInfo = this.GetMethodInfoUsingReflection(actorType, callback);
+            }
+            catch (AmbiguousMatchException)
+            {
+                // GetMethod will throw an AmbiguousMatchException if more than one methods are found with the same name
+                throw new ArgumentException($"Timer callback method: {callback} cannot be overloaded.");
+            }
+
+            // Check if the method exists
+            if (methodInfo == null)
+            {
+                throw new ArgumentException($"Timer callback method: {callback} does not exist in the Actor class: {actorTypeName}");
+            }
+
+            // The timer callback can accept only 0 or 1 parameters
+            var parameters = methodInfo.GetParameters();
+            if (parameters.Length > 1)
+            {
+                throw new ArgumentException("Timer callback can accept only zero or one parameters");
+            }
+
+            // The timer callback should return only Task return type
+            if (methodInfo.ReturnType != typeof(Task))
+            {
+                throw new ArgumentException("Timer callback can only return type Task");
+            }
+        }
+
+        private void EnsureInteractorInitialized()
+        {
+            if (this.Host.DaprInteractor == null)
+            {
+                throw new InvalidOperationException(
+                    "The actor was initialized without an HTTP client, and so cannot interact with timers or reminders. " +
+                    "This is likely to happen inside a unit test.");
             }
         }
     }

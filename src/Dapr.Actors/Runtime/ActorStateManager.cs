@@ -15,18 +15,20 @@ namespace Dapr.Actors.Runtime
     internal sealed class ActorStateManager : IActorStateManager
     {
         private readonly Actor actor;
-        private readonly string actorType;
+        private readonly string actorTypeName;
         private readonly Dictionary<string, StateMetadata> stateChangeTracker;
 
         internal ActorStateManager(Actor actor)
         {
             this.actor = actor;
-            this.actorType = actor.GetType().Name;
+            this.actorTypeName = actor.Host.ActorTypeInfo.ActorTypeName;
             this.stateChangeTracker = new Dictionary<string, StateMetadata>();
         }
 
         public async Task AddStateAsync<T>(string stateName, T value, CancellationToken cancellationToken)
         {
+            EnsureStateProviderInitialized();
+            
             if (!(await this.TryAddStateAsync(stateName, value, cancellationToken)))
             {
                 throw new InvalidOperationException(string.Format(CultureInfo.CurrentCulture, SR.ActorStateAlreadyExists, stateName));
@@ -36,6 +38,8 @@ namespace Dapr.Actors.Runtime
         public async Task<bool> TryAddStateAsync<T>(string stateName, T value, CancellationToken cancellationToken)
         {
             ArgumentVerifier.ThrowIfNull(stateName, nameof(stateName));
+
+            EnsureStateProviderInitialized();
 
             if (this.stateChangeTracker.ContainsKey(stateName))
             {
@@ -51,7 +55,7 @@ namespace Dapr.Actors.Runtime
                 return false;
             }
 
-            if (await this.actor.ActorService.StateProvider.ContainsStateAsync(this.actorType, this.actor.Id.ToString(), stateName, cancellationToken))
+            if (await this.actor.Host.StateProvider.ContainsStateAsync(this.actorTypeName, this.actor.Id.ToString(), stateName, cancellationToken))
             {
                 return false;
             }
@@ -62,6 +66,8 @@ namespace Dapr.Actors.Runtime
 
         public async Task<T> GetStateAsync<T>(string stateName, CancellationToken cancellationToken)
         {
+            EnsureStateProviderInitialized();
+
             var condRes = await this.TryGetStateAsync<T>(stateName, cancellationToken);
 
             if (condRes.HasValue)
@@ -75,6 +81,9 @@ namespace Dapr.Actors.Runtime
         public async Task<ConditionalValue<T>> TryGetStateAsync<T>(string stateName, CancellationToken cancellationToken)
         {
             ArgumentVerifier.ThrowIfNull(stateName, nameof(stateName));
+
+            EnsureStateProviderInitialized();
+
             if (this.stateChangeTracker.ContainsKey(stateName))
             {
                 var stateMetadata = this.stateChangeTracker[stateName];
@@ -101,6 +110,8 @@ namespace Dapr.Actors.Runtime
         {
             ArgumentVerifier.ThrowIfNull(stateName, nameof(stateName));
 
+            EnsureStateProviderInitialized();
+
             if (this.stateChangeTracker.ContainsKey(stateName))
             {
                 var stateMetadata = this.stateChangeTracker[stateName];
@@ -112,7 +123,7 @@ namespace Dapr.Actors.Runtime
                     stateMetadata.ChangeKind = StateChangeKind.Update;
                 }
             }
-            else if (await this.actor.ActorService.StateProvider.ContainsStateAsync(this.actorType, this.actor.Id.ToString(), stateName, cancellationToken))
+            else if (await this.actor.Host.StateProvider.ContainsStateAsync(this.actorTypeName, this.actor.Id.ToString(), stateName, cancellationToken))
             {
                 this.stateChangeTracker.Add(stateName, StateMetadata.Create(value, StateChangeKind.Update));
             }
@@ -124,6 +135,8 @@ namespace Dapr.Actors.Runtime
 
         public async Task RemoveStateAsync(string stateName, CancellationToken cancellationToken)
         {
+            EnsureStateProviderInitialized();
+
             if (!(await this.TryRemoveStateAsync(stateName, cancellationToken)))
             {
                 throw new KeyNotFoundException(string.Format(CultureInfo.CurrentCulture, SR.ErrorNamedActorStateNotFound, stateName));
@@ -133,6 +146,8 @@ namespace Dapr.Actors.Runtime
         public async Task<bool> TryRemoveStateAsync(string stateName, CancellationToken cancellationToken)
         {
             ArgumentVerifier.ThrowIfNull(stateName, nameof(stateName));
+
+            EnsureStateProviderInitialized();
 
             if (this.stateChangeTracker.ContainsKey(stateName))
             {
@@ -151,7 +166,7 @@ namespace Dapr.Actors.Runtime
                 return true;
             }
 
-            if (await this.actor.ActorService.StateProvider.ContainsStateAsync(this.actorType, this.actor.Id.ToString(), stateName, cancellationToken))
+            if (await this.actor.Host.StateProvider.ContainsStateAsync(this.actorTypeName, this.actor.Id.ToString(), stateName, cancellationToken))
             {
                 this.stateChangeTracker.Add(stateName, StateMetadata.CreateForRemove());
                 return true;
@@ -164,6 +179,8 @@ namespace Dapr.Actors.Runtime
         {
             ArgumentVerifier.ThrowIfNull(stateName, nameof(stateName));
 
+            EnsureStateProviderInitialized();
+
             if (this.stateChangeTracker.ContainsKey(stateName))
             {
                 var stateMetadata = this.stateChangeTracker[stateName];
@@ -172,7 +189,7 @@ namespace Dapr.Actors.Runtime
                 return stateMetadata.ChangeKind != StateChangeKind.Remove;
             }
 
-            if (await this.actor.ActorService.StateProvider.ContainsStateAsync(this.actorType, this.actor.Id.ToString(), stateName, cancellationToken))
+            if (await this.actor.Host.StateProvider.ContainsStateAsync(this.actorTypeName, this.actor.Id.ToString(), stateName, cancellationToken))
             {
                 return true;
             }
@@ -182,6 +199,8 @@ namespace Dapr.Actors.Runtime
 
         public async Task<T> GetOrAddStateAsync<T>(string stateName, T value, CancellationToken cancellationToken)
         {
+            EnsureStateProviderInitialized();
+
             var condRes = await this.TryGetStateAsync<T>(stateName, cancellationToken);
 
             if (condRes.HasValue)
@@ -202,6 +221,8 @@ namespace Dapr.Actors.Runtime
             CancellationToken cancellationToken = default)
         {
             ArgumentVerifier.ThrowIfNull(stateName, nameof(stateName));
+
+            EnsureStateProviderInitialized();
 
             if (this.stateChangeTracker.ContainsKey(stateName))
             {
@@ -238,39 +259,18 @@ namespace Dapr.Actors.Runtime
             return addValue;
         }
 
-        public async Task<IEnumerable<string>> GetStateNamesAsync(CancellationToken cancellationToken = default)
-        {
-            // TODO: Get all state names from Dapr once implemented.
-            // var namesFromStateProvider = await this.stateProvider.EnumerateStateNamesAsync(this.actor.Id, cancellationToken);
-            await Task.CompletedTask;
-            var stateNameList = new List<string>();
-
-            var kvPairEnumerator = this.stateChangeTracker.GetEnumerator();
-
-            while (kvPairEnumerator.MoveNext())
-            {
-                switch (kvPairEnumerator.Current.Value.ChangeKind)
-                {
-                    case StateChangeKind.Add:
-                        stateNameList.Add(kvPairEnumerator.Current.Key);
-                        break;
-                    case StateChangeKind.Remove:
-                        stateNameList.Remove(kvPairEnumerator.Current.Key);
-                        break;
-                }
-            }
-
-            return stateNameList;
-        }
-
         public Task ClearCacheAsync(CancellationToken cancellationToken)
         {
+            EnsureStateProviderInitialized();
+
             this.stateChangeTracker.Clear();
             return Task.CompletedTask;
         }
 
         public async Task SaveStateAsync(CancellationToken cancellationToken = default)
         {
+            EnsureStateProviderInitialized();
+
             if (this.stateChangeTracker.Count > 0)
             {
                 var stateChangeList = new List<ActorStateChange>();
@@ -297,7 +297,7 @@ namespace Dapr.Actors.Runtime
 
                 if (stateChangeList.Count > 0)
                 {
-                    await this.actor.ActorService.StateProvider.SaveStateAsync(this.actorType, this.actor.Id.ToString(), stateChangeList.AsReadOnly(), cancellationToken);
+                    await this.actor.Host.StateProvider.SaveStateAsync(this.actorTypeName, this.actor.Id.ToString(), stateChangeList.AsReadOnly(), cancellationToken);
                 }
 
                 // Remove the states from tracker whcih were marked for removal.
@@ -321,12 +321,23 @@ namespace Dapr.Actors.Runtime
 
         private Task<ConditionalValue<T>> TryGetStateFromStateProviderAsync<T>(string stateName, CancellationToken cancellationToken)
         {
-            return this.actor.ActorService.StateProvider.TryLoadStateAsync<T>(this.actorType, this.actor.Id.ToString(), stateName, cancellationToken);
+            EnsureStateProviderInitialized();
+            return this.actor.Host.StateProvider.TryLoadStateAsync<T>(this.actorTypeName, this.actor.Id.ToString(), stateName, cancellationToken);
+        }
+
+        private void EnsureStateProviderInitialized()
+        {
+            if (this.actor.Host.StateProvider == null)
+            {
+                throw new InvalidOperationException(
+                    "The actor was initialized without a state provider, and so cannot interact with state. " +
+                    "If this is inside a unit test, replace Actor.StateProvider with a mock.");
+            }
         }
 
         private sealed class StateMetadata
         {
-            private StateMetadata(object value,     Type type, StateChangeKind changeKind)
+            private StateMetadata(object value, Type type, StateChangeKind changeKind)
             {
                 this.Value = value;
                 this.Type = type;

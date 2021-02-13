@@ -7,15 +7,17 @@ namespace Dapr.Actors
 {
     using System;
     using System.Runtime.Serialization;
+    using System.Text.Json.Serialization;
+    using Dapr.Actors.Seralization;
 
     /// <summary>
     /// The ActorId represents the identity of an actor within an actor service.
     /// </summary>
+    [JsonConverter(typeof(ActorIdJsonConverter))]
     [DataContract(Name = "ActorId")]
     public class ActorId
     {
-        private static readonly Random Rand = new Random();
-        private static readonly object RandLock = new object();
+        [DataMember(Name = "ActorId", Order = 0, IsRequired = true)]
         private readonly string stringId;
 
         /// <summary>
@@ -24,7 +26,11 @@ namespace Dapr.Actors
         /// <param name="id">Value for actor id.</param>
         public ActorId(string id)
         {
-            this.stringId = id ?? throw new ArgumentNullException(nameof(id));
+            if (string.IsNullOrWhiteSpace(id))
+            {
+                throw new ArgumentException("The value cannot be null, empty or white spaces.", nameof(id));
+            }
+            this.stringId = id;
         }
 
         /// <summary>
@@ -67,13 +73,7 @@ namespace Dapr.Actors
         /// <remarks>This method is thread-safe and generates a new random <see cref="ActorId"/> every time it is called.</remarks>
         public static ActorId CreateRandom()
         {
-            var buffer = new byte[8];
-            lock (RandLock)
-            {
-                Rand.NextBytes(buffer);
-            }
-
-            return new ActorId(BitConverter.ToString(buffer, 0));
+            return new ActorId(Guid.NewGuid().ToString());
         }
 
         /// <summary>

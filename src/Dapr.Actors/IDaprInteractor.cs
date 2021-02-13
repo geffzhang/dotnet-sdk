@@ -27,32 +27,11 @@ namespace Dapr.Actors
         Task<Stream> InvokeActorMethodWithoutRemotingAsync(string actorType, string actorId, string methodName, string jsonPayload, CancellationToken cancellationToken = default);
 
         /// <summary>
-        /// Saves Actor state. This is temporary until the Dapr runtime implements the Batch state update.
-        /// </summary>
-        /// <param name="actorType">Type of actor.</param>
-        /// <param name="actorId">ActorId.</param>
-        /// <param name="keyName">state name.</param>
-        /// <param name="data">State to be saved.</param>
-        /// <param name="cancellationToken">Cancels the operation.</param>
-        /// <returns>A task that represents the asynchronous operation.</returns>
-        Task SaveStateAsync(string actorType, string actorId, string keyName, string data, CancellationToken cancellationToken = default);
-
-        /// <summary>
-        /// Removes Actor state. This is temporary until the Dapr runtime implements the Batch state update.
-        /// </summary>
-        /// <param name="actorType">Type of actor.</param>
-        /// <param name="actorId">ActorId.</param>
-        /// <param name="keyName">state name.</param>
-        /// <param name="cancellationToken">Cancels the operation.</param>
-        /// <returns>A task that represents the asynchronous operation.</returns>
-        Task RemoveStateAsync(string actorType, string actorId, string keyName, CancellationToken cancellationToken = default);
-
-        /// <summary>
         /// Saves state batch to Dapr.
         /// </summary>
         /// <param name="actorType">Type of actor.</param>
         /// <param name="actorId">ActorId.</param>
-        /// <param name="data">Json data with state changes as per the dapr spec for transaction state update.</param>
+        /// <param name="data">JSON data with state changes as per the Dapr spec for transaction state update.</param>
         /// <param name="cancellationToken">Cancels the operation.</param>
         /// <returns>A task that represents the asynchronous operation.</returns>
         Task SaveStateTransactionallyAsync(string actorType, string actorId, string data, CancellationToken cancellationToken = default);
@@ -82,7 +61,7 @@ namespace Dapr.Actors
         /// <param name="actorType">Type of actor.</param>
         /// <param name="actorId">ActorId.</param>
         /// <param name="reminderName">Name of reminder to register.</param>
-        /// <param name="data">Json reminder data as per the Dapr spec.</param>
+        /// <param name="data">JSON reminder data as per the Dapr spec.</param>
         /// <param name="cancellationToken">Cancels the operation.</param>
         /// <returns>A <see cref="Task"/> representing the result of the asynchronous operation.</returns>
         Task RegisterReminderAsync(string actorType, string actorId, string reminderName, string data, CancellationToken cancellationToken = default);
@@ -103,7 +82,7 @@ namespace Dapr.Actors
         /// <param name="actorType">Type of actor.</param>
         /// <param name="actorId">ActorId.</param>
         /// <param name="timerName">Name of timer to register.</param>
-        /// <param name="data">Json reminder data as per the Dapr spec.</param>
+        /// <param name="data">JSON reminder data as per the Dapr spec.</param>
         /// <param name="cancellationToken">Cancels the operation.</param>
         /// <returns>A <see cref="Task"/> representing the result of the asynchronous operation.</returns>
         Task RegisterTimerAsync(string actorType, string actorId, string timerName, string data, CancellationToken cancellationToken = default);

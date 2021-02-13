@@ -4,6 +4,7 @@ Dapr is a portable, event-driven, serverless runtime for building distributed ap
 
 [![Build Status](https://github.com/dapr/dotnet-sdk/workflows/build/badge.svg)](https://github.com/dapr/dotnet-sdk/actions?workflow=build)
 [![Gitter](https://badges.gitter.im/Dapr/community.svg)](https://gitter.im/Dapr/community?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge)
+[![codecov](https://codecov.io/gh/dapr/dotnet-sdk/branch/master/graph/badge.svg)](https://codecov.io/gh/dapr/dotnet-sdk)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
 - [dapr.io](https://dapr.io)
@@ -15,26 +16,28 @@ Dapr SDK for .NET allows you to implement the Virtual Actor model, based on the 
 This repo builds the following packages:
 
 - Dapr.Client
-- Dapr.Client.Grpc
 - Dapr.AspNetCore
 - Dapr.Actors
 - Dapr.Actors.AspNetCore
+- Dapr.Extensions.Configuration
 
 ## Getting Started
 
 ### Prerequesites
 
-Each project is a normal C# Visual Studio 2019 project. At minimum, you need [.NET Core SDK 3.0](https://dotnet.microsoft.com/download/dotnet-core/3.0) to build and generate NuGet packages.
+Each project is a normal C# project. At minimum, you need [.NET Core SDK 5.0](https://dotnet.microsoft.com/download/dotnet-core/5.0) to build, test, and generate NuGet packages.
 
-We recommend installing [Visual Studio 2019 v16.3 or later ](https://www.visualstudio.com/vs/) which will set you up with all the .NET build tools and allow you to open the solution files. Community Edition is free and can be used to build everything here.
-Make sure you [update Visual Studio to the most recent release](https://docs.microsoft.com/visualstudio/install/update-visual-studio). To find a version of .NET Core that can be used with earlier versions of Visual Studio, see [.NET SDKs for Visual Studio](https://dotnet.microsoft.com/download/visual-studio-sdks).
+**macOS/Linux:**
 
-### Solution Files
-The repo currently has 3 solution files:
-- *all.sln*: This includes all the sdk product, test and samples project files.
-- *src/prod.sln*: This includes all the product project files.
-- *samples/samples.sln*: This includes all the sample projects files dependencies project files.
-- *test/test.sln*: This includes all the test projects and dependencies project files.
+On macOS or Linux we recommend [Visual Studio Code](https://code.visualstudio.com/) with the [C# Extension](https://marketplace.visualstudio.com/items?itemName=ms-dotnettools.csharp). See [here](https://code.visualstudio.com/docs/languages/dotnet) for a getting started guide for VS Code and .NET.
+
+
+**Windows:**
+
+On Windows, we recommend installing [the latest Visual Studio 2019](https://www.visualstudio.com/vs/) which will set you up with all the .NET build tools and allow you to open the solution files. Community Edition is free and can be used to build everything here.
+
+Make sure you [update Visual Studio to the most recent release](https://docs.microsoft.com/visualstudio/install/update-visual-studio).
+
 
 ### Build
 
@@ -45,13 +48,13 @@ To build everything and generate NuGet packages, run dotnet cli commands. Binari
 dotnet build -c Debug  # for release, -c Release
 
 # Run unit-test
-dotnet test test/test.sln
+dotnet test
 
 # Generate nuget packages in /bin/Debug/nugets
-dotnet pack src/prod.sln
+dotnet pack
 ```
 
-Each project can also be built individually directly through Visual Studio. You can open the solution file all.sln in repo root to load all sdk, samples and test projects.
+Each project can also be built individually directly through the CLI or your editor/IDE. You can open the solution file all.sln in repo root to load all sdk, samples and test projects.
 
 ## Releases
 
@@ -77,4 +80,4 @@ These articles will help get you started with Dapr runtime and Dapr Actors:
 
 - [Getting started with Dapr Actor](docs/get-started-dapr-actor.md)
 - [Dapr CLI](https://github.com/dapr/cli)
-- [Dapr Actors API Reference](https://github.com/dapr/docs/blob/master/reference/api/actors.md)
+- [Dapr Actors API Reference](https://docs.dapr.io/reference/api/actors_api/)

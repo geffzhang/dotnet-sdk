@@ -5,8 +5,10 @@
 
 namespace Dapr.Actors.Test
 {
+    using System;
     using System.Threading;
     using System.Threading.Tasks;
+    using Dapr.Actors.Runtime;
 
     /// <summary>
     /// Interface for test actor.
@@ -21,7 +23,7 @@ namespace Dapr.Actors.Test
         Task<int> GetCountAsync(CancellationToken cancellationToken);
 
         /// <summary>
-        /// SetCoutn method for test actor.
+        /// SetCount method for test actor.
         /// </summary>
         /// <param name="count">Count to set for the actor.</param>
         /// <param name="cancellationToken">Cancellation token to cancel the operation.</param>
@@ -32,8 +34,17 @@ namespace Dapr.Actors.Test
     /// <summary>
     /// Test Actor Class.
     /// </summary>
-    public class TestActor : ITestActor
+    public class TestActor : Actor,  ITestActor
     {
+        public TestActor(ActorHost host, IActorStateManager stateManager = null)
+            : base(host)
+        {
+            if (stateManager != null)
+            {
+                this.StateManager = stateManager;
+            }
+        }
+
         /// <inheritdoc/>
         public Task<int> GetCountAsync(CancellationToken cancellationToken)
         {
@@ -44,6 +55,66 @@ namespace Dapr.Actors.Test
         public Task SetCountAsync(int count, CancellationToken cancellationToken)
         {
             return Task.CompletedTask;
+        }
+
+        public Task SaveTestState()
+        {
+            return this.SaveStateAsync();
+        }
+
+        public Task ResetTestStateAsync()
+        {
+            return this.ResetStateAsync();
+        }
+
+        public void TimerCallbackNonTaskReturnType()
+        {
+        }
+
+        public Task TimerCallbackTwoArguments(int i, int j)
+        {
+            Console.WriteLine(i + j);
+            return default;
+        }
+
+        private Task TimerCallbackPrivate()
+        {
+            return default;
+        }
+
+        protected Task TimerCallbackProtected()
+        {
+            return default;
+        }
+
+        internal Task TimerCallbackInternal()
+        {
+            return default;
+        }
+
+        public Task TimerCallbackPublicWithNoArguments()
+        {
+            return default;
+        }
+
+        public Task TimerCallbackPublicWithOneArgument(int i)
+        {
+            return default;
+        }
+
+        public Task TimerCallbackOverloaded()
+        {
+            return default;
+        }
+
+        public Task TimerCallbackOverloaded(int i)
+        {
+            return default;
+        }
+
+        public static Task TimerCallbackStatic()
+        {
+            return default;
         }
     }
 }

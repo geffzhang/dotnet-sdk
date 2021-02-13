@@ -1,4 +1,4 @@
-// ------------------------------------------------------------
+﻿// ------------------------------------------------------------
 // Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
 // ------------------------------------------------------------
@@ -6,7 +6,8 @@
 namespace Microsoft.Extensions.DependencyInjection
 {
     using System;
-    using Dapr;
+    using System.Linq;
+    using Dapr.Client;
 
     /// <summary>
     /// Provides extension methods for <see cref="IServiceCollection" />.
@@ -18,7 +19,8 @@ namespace Microsoft.Extensions.DependencyInjection
         /// with ASP.NET Core MVC. Use the <c>AddDapr()</c> extension method on <c>IMvcBuilder</c> to register MVC integration.
         /// </summary>
         /// <param name="services">The <see cref="IServiceCollection" />.</param>
-        public static void AddDaprClient(this IServiceCollection services)
+        /// <param name="configure"></param>
+        public static void AddDaprClient(this IServiceCollection services, Action<DaprClientBuilder> configure = null)
         {
             if (services is null)
             {
@@ -27,16 +29,23 @@ namespace Microsoft.Extensions.DependencyInjection
 
             // This pattern prevents registering services multiple times in the case AddDaprClient is called
             // by non-user-code.
-            if (services.Contains(ServiceDescriptor.Singleton<DaprClientMarkerService, DaprClientMarkerService>()))
+            if (services.Any(s => s.ImplementationType == typeof(DaprClientMarkerService)))
             {
                 return;
             }
 
             services.AddSingleton<DaprClientMarkerService>();
 
-            // StateHttpClient can be used with or without JsonSerializerOptions registered
-            // in DI. If the user registers JsonSerializerOptions, it will be picked up by the client automatically.
-            services.AddHttpClient("state").AddTypedClient<StateClient, StateHttpClient>();
+            services.AddSingleton(_ =>
+            {
+                var builder = new DaprClientBuilder();
+                if (configure != null)
+                {
+                    configure.Invoke(builder);
+                }
+
+                return builder.Build();
+            });
         }
 
         private class DaprClientMarkerService

@@ -16,6 +16,9 @@ EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Dapr.AspNetCore", "src\Dapr.AspNetCore\Dapr.AspNetCore.csproj", "{08D602F6-7C11-4653-B70B-B56333BF6FD2}"
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "samples", "samples", "{B2DB41EE-45F5-447B-95E8-38E1E8B70C4E}"
+	ProjectSection(SolutionItems) = preProject
+		samples\.editorconfig = samples\.editorconfig
+	EndProjectSection
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "ControllerSample", "samples\AspNetCore\ControllerSample\ControllerSample.csproj", "{2B015C86-32FB-4178-8F8A-26749B6FCE11}"
 EndProject
@@ -41,11 +44,28 @@ Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "ActorClient", "samples\Acto
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "AspNetCore", "AspNetCore", "{DCBEAB71-0BDE-42F4-8187-F576942CB038}"
 EndProject
-Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Dapr.Client.Grpc", "src\Dapr.Client.Grpc\Dapr.Client.Grpc.csproj", "{BCE5A721-69C5-4510-97ED-931ADE587466}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "DaprClient", "samples\Client\DaprClient\DaprClient.csproj", "{576B28F7-0D86-4C11-828A-B648E11863F6}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "GrpcClient", "samples\Grpc\GrpcClient\GrpcClient.csproj", "{576B28F7-0D86-4C11-828A-B648E11863F6}"
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Client", "Client", "{9ED03812-9DDE-4DFE-9574-DF3671EECA25}"
 EndProject
-Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Grpc", "Grpc", "{9ED03812-9DDE-4DFE-9574-DF3671EECA25}"
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Solution Items", "Solution Items", "{1BD1276E-D28A-45EA-89B1-6AD48471500D}"
+	ProjectSection(SolutionItems) = preProject
+		.editorconfig = .editorconfig
+	EndProjectSection
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Dapr.Actors.AspNetCore.Test", "test\Dapr.Actors.AspNetCore.Test\Dapr.Actors.AspNetCore.Test.csproj", "{9C1D6ABA-5EDE-4FA0-A8A9-0AB98CB74737}"
+EndProject
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "GrpcServiceSample", "samples\AspNetCore\GrpcServiceSample\GrpcServiceSample.csproj", "{367CC950-C047-48D8-9CBE-EA5A2139B137}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Dapr.Actors.AspNetCore.IntegrationTest", "test\Dapr.Actors.AspNetCore.IntegrationTest\Dapr.Actors.AspNetCore.IntegrationTest.csproj", "{95BAF30B-8089-42CE-8530-6DFBCE1F6A07}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Dapr.Actors.AspNetCore.IntegrationTest.App", "test\Dapr.Actors.AspNetCore.IntegrationTest.App\Dapr.Actors.AspNetCore.IntegrationTest.App.csproj", "{1BA7E772-8AA7-4D5A-800D-66B17F62421C}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Dapr.Extensions.Configuration.Test", "test\Dapr.Extensions.Configuration.Test\Dapr.Extensions.Configuration.Test.csproj", "{78FC19B2-396C-4ED2-BFD9-6C5667C61666}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SecretStoreConfigurationProviderSample", "samples\AspNetCore\SecretStoreConfigurationProviderSample\SecretStoreConfigurationProviderSample.csproj", "{3E38D29F-C7E1-41BA-9F22-23BCC4650842}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Dapr.Extensions.Configuration", "src\Dapr.Extensions.Configuration\Dapr.Extensions.Configuration.csproj", "{B615B353-476C-43B9-A776-B193B0DBD256}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -109,14 +129,38 @@ Global
 		{9D0A3EB0-C47C-4C68-A9A2-B253EC81E6C4}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{9D0A3EB0-C47C-4C68-A9A2-B253EC81E6C4}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{9D0A3EB0-C47C-4C68-A9A2-B253EC81E6C4}.Release|Any CPU.Build.0 = Release|Any CPU
-		{BCE5A721-69C5-4510-97ED-931ADE587466}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
-		{BCE5A721-69C5-4510-97ED-931ADE587466}.Debug|Any CPU.Build.0 = Debug|Any CPU
-		{BCE5A721-69C5-4510-97ED-931ADE587466}.Release|Any CPU.ActiveCfg = Release|Any CPU
-		{BCE5A721-69C5-4510-97ED-931ADE587466}.Release|Any CPU.Build.0 = Release|Any CPU
 		{576B28F7-0D86-4C11-828A-B648E11863F6}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
 		{576B28F7-0D86-4C11-828A-B648E11863F6}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{576B28F7-0D86-4C11-828A-B648E11863F6}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{576B28F7-0D86-4C11-828A-B648E11863F6}.Release|Any CPU.Build.0 = Release|Any CPU
+		{9C1D6ABA-5EDE-4FA0-A8A9-0AB98CB74737}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{9C1D6ABA-5EDE-4FA0-A8A9-0AB98CB74737}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{9C1D6ABA-5EDE-4FA0-A8A9-0AB98CB74737}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{9C1D6ABA-5EDE-4FA0-A8A9-0AB98CB74737}.Release|Any CPU.Build.0 = Release|Any CPU
+		{367CC950-C047-48D8-9CBE-EA5A2139B137}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{367CC950-C047-48D8-9CBE-EA5A2139B137}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{367CC950-C047-48D8-9CBE-EA5A2139B137}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{367CC950-C047-48D8-9CBE-EA5A2139B137}.Release|Any CPU.Build.0 = Release|Any CPU
+		{95BAF30B-8089-42CE-8530-6DFBCE1F6A07}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{95BAF30B-8089-42CE-8530-6DFBCE1F6A07}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{95BAF30B-8089-42CE-8530-6DFBCE1F6A07}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{95BAF30B-8089-42CE-8530-6DFBCE1F6A07}.Release|Any CPU.Build.0 = Release|Any CPU
+		{1BA7E772-8AA7-4D5A-800D-66B17F62421C}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{1BA7E772-8AA7-4D5A-800D-66B17F62421C}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{1BA7E772-8AA7-4D5A-800D-66B17F62421C}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{1BA7E772-8AA7-4D5A-800D-66B17F62421C}.Release|Any CPU.Build.0 = Release|Any CPU
+		{78FC19B2-396C-4ED2-BFD9-6C5667C61666}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{78FC19B2-396C-4ED2-BFD9-6C5667C61666}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{78FC19B2-396C-4ED2-BFD9-6C5667C61666}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{78FC19B2-396C-4ED2-BFD9-6C5667C61666}.Release|Any CPU.Build.0 = Release|Any CPU
+		{3E38D29F-C7E1-41BA-9F22-23BCC4650842}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{3E38D29F-C7E1-41BA-9F22-23BCC4650842}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{3E38D29F-C7E1-41BA-9F22-23BCC4650842}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{3E38D29F-C7E1-41BA-9F22-23BCC4650842}.Release|Any CPU.Build.0 = Release|Any CPU
+		{B615B353-476C-43B9-A776-B193B0DBD256}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{B615B353-476C-43B9-A776-B193B0DBD256}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{B615B353-476C-43B9-A776-B193B0DBD256}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{B615B353-476C-43B9-A776-B193B0DBD256}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
@@ -138,9 +182,15 @@ Global
 		{2A398D08-8708-4D97-B036-CCE415B6A715} = {CA751B2C-E7F0-4AFA-BA5D-E91DD24E2847}
 		{9D0A3EB0-C47C-4C68-A9A2-B253EC81E6C4} = {CA751B2C-E7F0-4AFA-BA5D-E91DD24E2847}
 		{DCBEAB71-0BDE-42F4-8187-F576942CB038} = {B2DB41EE-45F5-447B-95E8-38E1E8B70C4E}
-		{BCE5A721-69C5-4510-97ED-931ADE587466} = {27C5D71D-0721-4221-9286-B94AB07B58CF}
 		{576B28F7-0D86-4C11-828A-B648E11863F6} = {9ED03812-9DDE-4DFE-9574-DF3671EECA25}
 		{9ED03812-9DDE-4DFE-9574-DF3671EECA25} = {B2DB41EE-45F5-447B-95E8-38E1E8B70C4E}
+		{9C1D6ABA-5EDE-4FA0-A8A9-0AB98CB74737} = {DD020B34-460F-455F-8D17-CF4A949F100B}
+		{367CC950-C047-48D8-9CBE-EA5A2139B137} = {DCBEAB71-0BDE-42F4-8187-F576942CB038}
+		{95BAF30B-8089-42CE-8530-6DFBCE1F6A07} = {DD020B34-460F-455F-8D17-CF4A949F100B}
+		{1BA7E772-8AA7-4D5A-800D-66B17F62421C} = {DD020B34-460F-455F-8D17-CF4A949F100B}
+		{78FC19B2-396C-4ED2-BFD9-6C5667C61666} = {DD020B34-460F-455F-8D17-CF4A949F100B}
+		{3E38D29F-C7E1-41BA-9F22-23BCC4650842} = {DCBEAB71-0BDE-42F4-8187-F576942CB038}
+		{B615B353-476C-43B9-A776-B193B0DBD256} = {27C5D71D-0721-4221-9286-B94AB07B58CF}
 	EndGlobalSection
 	GlobalSection(ExtensibilityGlobals) = postSolution
 		SolutionGuid = {65220BF2-EAE1-4CB2-AA58-EBE80768CB40}

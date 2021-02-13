@@ -13,13 +13,14 @@ namespace Dapr.Actors
         public const string RequestIdHeaderName = "X-DaprRequestId";
         public const string RequestHeaderName = "X-DaprRequestHeader";
         public const string ErrorResponseHeaderName = "X-DaprErrorResponseHeader";
+        public const string DaprApiTokenEnvironmentVariable = "DAPR_API_TOKEN";
         public const string DaprHttpPortEnvironmentVariable = "DAPR_HTTP_PORT";
         public const string Dapr = "dapr";
         public const string Config = "config";
         public const string State = "state";
         public const string Actors = "actors";
         public const string Namespace = "urn:actors";
-        public const string DaprDefaultEndpoint = "localhost";
+        public const string DaprDefaultEndpoint = "127.0.0.1";
         public const string DaprDefaultPort = "3500";
         public const string DaprVersion = "v1.0";
         public const string Method = "method";
@@ -50,5 +51,20 @@ namespace Dapr.Actors
         /// Gets string format for Actors timer registration relative url..
         /// </summary>
         public static string ActorTimerRelativeUrlFormat => $"{DaprVersion}/{Actors}/{{0}}/{{1}}/{Timers}/{{2}}";
+
+        /// <summary>
+        /// Error code indicating there was a failure invoking an actor method.
+        /// </summary>
+        public static string ErrorActorInvokeMethod = "ERR_ACTOR_INVOKE_METHOD";
+
+        /// <summary>
+        /// Error code indicating something does not exist.
+        /// </summary>
+        public static string ErrorDoesNotExist = "ERR_DOES_NOT_EXIST";
+
+        /// <summary>
+        /// Error code indicating an unknonwn/unspecified error.
+        /// </summary>
+        public static string Unknown = "UNKNOWN";
     }
 }

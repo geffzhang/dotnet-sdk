@@ -7,56 +7,67 @@ namespace Dapr.Actors.Runtime
 {
     using System;
     using System.IO;
+    using System.Text;
+    using System.Text.Json;
     using System.Threading.Tasks;
-    using Newtonsoft.Json;
 
-    internal class ActorTimer : IActorTimer
+    /// <summary>
+    /// Represents the timer set on an Actor.
+    /// </summary>
+    public class ActorTimer
     {
-        private readonly Actor owner;
-
+        /// <summary>
+        /// The constructor
+        /// </summary>
         public ActorTimer(
-            Actor owner,
             string timerName,
-            Func<object, Task> asyncCallback,
-            object state,
-            TimeSpan dueTime,
-            TimeSpan period)
+            TimerInfo timerInfo)
         {
-            this.owner = owner;
             this.Name = timerName;
-            this.AsyncCallback = asyncCallback;
-            this.State = state;
-            this.Period = period;
-            this.DueTime = dueTime;
+            this.TimerInfo = timerInfo;
         }
 
+        /// <summary>
+        /// Timer name
+        /// </summary>
         public string Name { get; }
 
-        public TimeSpan DueTime { get; }
+        /// <summary>
+        /// Timer related information
+        /// </summary>
+        public TimerInfo TimerInfo { get; }
 
-        public TimeSpan Period { get; }
 
-        public object State { get; }
-
-        public Func<object, Task> AsyncCallback { get; }
-
-        internal string SerializeToJson()
+        /// <summary>
+        /// Gets the callback routine to be invoked when the timer is fired
+        /// </summary>
+        public string TimerCallback
         {
-            string content;
-            using (var sw = new StringWriter())
-            {
-                using var writer = new JsonTextWriter(sw);
-                writer.WriteStartObject();
+            get { return this.TimerInfo.Callback; }
+        }
 
-                writer.WriteProperty((TimeSpan?)this.DueTime, "dueTime", JsonWriterExtensions.WriteTimeSpanValueDaprFormat);
-                writer.WriteProperty((TimeSpan?)this.Period, "period", JsonWriterExtensions.WriteTimeSpanValueDaprFormat);
+        /// <summary>
+        /// Parameters to be passed in to the timer callback routine
+        /// </summary>
+        public byte[] Data
+        {
+            get { return this.TimerInfo.Data; }
+        }
 
-                // Do not serialize state and call back, it will be kept with actor instance.
-                writer.WriteEndObject();
-                content = sw.ToString();
-            }
+        /// <summary>
+        /// Gets the time when the timer is first due to be invoked.
+        /// </summary>
+        public TimeSpan DueTime
+        {
+            get { return this.TimerInfo.DueTime; }
+        }
 
-            return content;
+        /// <summary>
+        /// Gets the time interval at which the timer is invoked periodically.
+        /// </summary>
+        public TimeSpan Period
+        {
+            get { return this.TimerInfo.Period; }
         }
     }
 }

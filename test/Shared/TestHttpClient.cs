@@ -1,4 +1,4 @@
-// ------------------------------------------------------------
+﻿// ------------------------------------------------------------
 // Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
 // ------------------------------------------------------------
@@ -51,11 +51,12 @@ namespace Dapr
 
             public HttpRequestMessage Request { get; }
 
-            public bool IsGetStateRequest => this.Request.Method == HttpMethod.Get;
-
-            public bool IsSetStateRequest => this.Request.Method == HttpMethod.Post;
-
             public void Respond(HttpResponseMessage response)
+            {
+                this.Completion.SetResult(response);
+            }
+
+            public void RespondWithResponse(HttpResponseMessage response)
             {
                 this.Completion.SetResult(response);
             }
@@ -64,11 +65,18 @@ namespace Dapr
             {
                 var bytes = JsonSerializer.SerializeToUtf8Bytes(value, options);
 
-                var response = new HttpResponseMessage(HttpStatusCode.OK);
-                response.Content = new ByteArrayContent(bytes);
+                var response = new HttpResponseMessage(HttpStatusCode.OK)
+                {
+                    Content = new ByteArrayContent(bytes)
+                };
                 response.Content.Headers.ContentType = new MediaTypeHeaderValue("application/json") { CharSet = "UTF-8", };
 
                 this.Completion.SetResult(response);
+            }
+
+            public void Throw(Exception exception)
+            {
+                this.Completion.SetException(exception);
             }
         }
 
